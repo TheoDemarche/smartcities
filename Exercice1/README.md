@@ -7,6 +7,10 @@
 ### Objectif
 L'objectif de cet exercice est de faire varier le clignotement d'une LED à partir d'un bouton poussoir.
 
+Le [pdf](./Exercice1.pdf)  relatif à cet exercice contient plus d'explications sur les consignes et le matériel nécessaire
+
+---
+
 ### Logique
 
 Tout d'abord, la LED peux varier entre 2 modes à l'aide d'une pression de plus d'une seconde:
