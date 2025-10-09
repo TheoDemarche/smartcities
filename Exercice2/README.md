@@ -46,11 +46,3 @@ Le volume du buzzer est contrôlé par un capteur rotatif (potentiomètre analog
    - Vérifie si le délai de la note actuelle est écoulé pour passer à la note suivante.
    - Joue la note avec le volume courant.
 
----
-
-### Matériel nécessaire
-
-- Microcontrôleur compatible MicroPython (ESP32/ESP8266, etc.)
-- Buzzer actif ou passif connecté à la pin 27
-- Bouton poussoir connecté à la pin 16
-- Capteur rotatif (potentiomètre) connecté à l’entrée analogique A0
