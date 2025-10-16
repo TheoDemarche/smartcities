@@ -24,6 +24,7 @@ led = Pin(18, Pin.OUT)
 timer_led = Timer(-1)
 
 buzzer = PWM(Pin(27))
+buzzer.freq(440)
 
 ROTARY_ANGLE_SENSOR = ADC(0)
 
@@ -90,6 +91,8 @@ def toggle_row(timer):
     global row
     row = not row
 
+
+
 while True:
     SET_temp = normalize_rotation(ROTARY_ANGLE_SENSOR.read_u16())
     if time.ticks_ms() - last > 100:
@@ -100,6 +103,7 @@ while True:
         if temp > (SET_temp + 3):
             if state != 0:
                 state = 0
+                buzzer.duty_u16(32767)
                 set_led_timer_freq(5)
                 timer_alarm.init(freq=1, mode=Timer.PERIODIC, callback=toggle_row)
         elif temp > SET_temp:
@@ -112,6 +116,7 @@ while True:
 
         if state != 0:
             timer_alarm.deinit()
+            buzzer.duty_u16(0)
         else:        
             if row == 0:
                 first_row = "ALARM"
