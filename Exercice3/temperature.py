@@ -20,7 +20,9 @@ second_row = ""                      # Texte de la seconde ligne
 # Gestion de l’alternance d’affichage de l’alarme
 row = 0                         #Ligne utilisé par le message d'alarme
 timer_alarm = Timer(-1)         #Timer pour l'alternance de la ligne utilisée
-frequence_alarme = 1            #Fréquence pour l'alternance de la ligne
+text_alarm = "ATTENTION"  # 16+ caractères
+scroll_index = 0
+frequence_alarme = 2            #Fréquence pour l'alternance de la ligne
 
 #Variable pour le capteur de température DHT20
 i2c0_sda = Pin(8)
@@ -57,10 +59,35 @@ def set_LCD(str1, str2):
     LCD.setCursor(0,1)
     LCD.print(str2)
 
-def toggle_row(timer):
-    """Inverse la ligne utilisée pour afficher le message d’alarme."""
-    global row
-    row = not row
+def scroll_alarm(timer):
+    """Fait défiler le mot ALARM vers la droite et change de ligne après un passage complet."""
+    global scroll_index, first_row, second_row, row, text_alarm
+
+    # Ajouter 16 espaces avant et après pour que le texte commence hors écran et disparaisse complètement
+    long_text = " " * 16 + text_alarm + " " * 16  
+    longueur = len(long_text)
+    # Fenêtre de 16 caractères pour l'affichage
+    fin = longueur - scroll_index
+    debut = fin - 16
+    display_text = long_text[debut:fin] #scroll_index:scroll_index + 16
+
+    scroll_index += 1
+
+    # Quand tout le texte est passé, on recommence et on change de ligne
+    if scroll_index > len(long_text) - 16:
+        scroll_index = 0
+        row = not row  # Change de ligne seulement après passage complet
+
+    # Affichage sur la ligne active
+    if row == 0:
+        first_row = display_text
+        second_row = f"Temp: {temp:.1f}°C"
+    else:
+        first_row = f"Set: {SET_temp:.1f}°C"
+        second_row = display_text
+
+    set_LCD(first_row, second_row)
+
 
 #Fonctions pour le DHT20
 def read_temp(timer):
@@ -122,11 +149,13 @@ def has_state_changed(new_state):
         return True
 
 def apply_state_actions(state):
+    global index_alarm
     """Applique les actions nécessaires lors d’un changement d’état."""
     if state == STATE_ALARME:
-        buzzer.duty_u16(32767)
+        buzzer.duty_u16(0) #32767
         set_led_timer_freq(5)
-        timer_alarm.init(freq=frequence_alarme, mode=Timer.PERIODIC, callback=toggle_row)
+        index_alarm = 0
+        timer_alarm.init(freq=frequence_alarme, mode=Timer.PERIODIC, callback=scroll_alarm)
         return
     
     buzzer.duty_u16(0)
@@ -137,22 +166,17 @@ def apply_state_actions(state):
     else: # state == STATE_NORMAL
         set_led_timer_freq(0)
 
-
 def update_display():
-    """Met à jour le contenu affiché sur le LCD."""
+    """Met à jour le LCD pour les autres états que l'alarme."""
     global first_row, second_row
 
     if state == STATE_ALARME:
-        if row == 0:
-            first_row = "ALARM"
-            second_row = f"Temp: {temp:.1f}°C"
-        else:
-            first_row = f"Set: {SET_temp:.1f}°C"
-            second_row = "ALARM"
-    else:
-        first_row = f"Set: {SET_temp:.1f}°C"
-        second_row = f"Ambient: {temp:.1f}°C"
+        # On laisse le timer scroll_alarm gérer l'affichage
+        return
 
+    # Sinon on affiche la consigne et la température normale
+    first_row = f"Set: {SET_temp:.1f}°C"
+    second_row = f"Ambient: {temp:.1f}°C"
     set_LCD(first_row, second_row)
 
 
@@ -167,7 +191,6 @@ def main():
         update_set_temperature()
 
         if time.ticks_ms() - last > 100:
-
             new_state = determine_state()
             if has_state_changed(new_state):
                 apply_state_actions(state)
