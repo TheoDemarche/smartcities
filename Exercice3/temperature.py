@@ -67,7 +67,6 @@ def read_temp(timer):
     """Lit la température actuelle depuis le DHT20."""
     global temp
     temp = dht20.measurements['t']
-    print(temp)
 
 #Fonctions pour la LED
 def toggle_led(timer):
@@ -95,12 +94,7 @@ def normalize_rotation(rot):
     return round(rot * 2) / 2
 
 
-
-last = time.ticks_ms()
-
-# Démarre la lecture de température périodique
-timer_temp.init(freq=frequence_mesure, mode=Timer.PERIODIC, callback=read_temp)
-
+#Autre fonctions
 def update_set_temperature():
     """Lit la température de consigne à partir du potentiomètre et la normalise."""
     global SET_temp
@@ -110,7 +104,6 @@ def determine_state():
     """Détermine le nouvel état du système en fonction de la température."""
     global state, temp
     if temp > (SET_temp + ECART_TEMP_ALARME):
-        print("alarme")
         return STATE_ALARME
     elif temp > SET_temp:
         return STATE_HAUT
@@ -162,18 +155,25 @@ def update_display():
 
     set_LCD(first_row, second_row)
 
-while True:
-    # Lecture de la consigne via potentiomètre
-    update_set_temperature()
 
-    if time.ticks_ms() - last > 100:
+def main():
+    last = time.ticks_ms()
 
-        new_state = determine_state()
-        if has_state_changed(new_state):
-            apply_state_actions(state)
-        update_display()
+    # Démarre la lecture de température périodique
+    timer_temp.init(freq=frequence_mesure, mode=Timer.PERIODIC, callback=read_temp)
 
-        last = time.ticks_ms()
+    while True:
+        # Lecture de la consigne via potentiomètre
+        update_set_temperature()
 
-# if __name__ == '__main__':
-#     main()
+        if time.ticks_ms() - last > 100:
+
+            new_state = determine_state()
+            if has_state_changed(new_state):
+                apply_state_actions(state)
+            update_display()
+
+            last = time.ticks_ms()
+
+if __name__ == '__main__':
+    main()
