@@ -20,9 +20,17 @@ second_row = ""                      # Texte de la seconde ligne
 # Gestion de l’alternance d’affichage de l’alarme
 row = 0                         #Ligne utilisé par le message d'alarme
 timer_alarm = Timer(-1)         #Timer pour l'alternance de la ligne utilisée
-text_alarm = "ATTENTION"  # 16+ caractères
+text_alarm = "ATTENTION"        #Texte afficher pour l'alarme
+
+mode_alarm = MODE_DEFILEMENT = 1             #(1) Activation du défilement (0) Clignotement
+
+#Défilement
 scroll_index = 0
-frequence_alarme = 2            #Fréquence pour l'alternance de la ligne
+direction_alarm = 0             #Gauche vers droite, 1 pour inverser
+frequence_defilement = 2            #Fréquence pour l'alternance de la ligne
+
+#Clignotement
+frequence_clignotement = 1
 
 #Variable pour le capteur de température DHT20
 i2c0_sda = Pin(8)
@@ -34,12 +42,19 @@ frequence_mesure = 1            #Fréquence pour la prise de mesure
 temp = dht20.measurements['t']
 
 #Variables pour le LED
-led = Pin(18, Pin.OUT)
+led = PWM(Pin(18)) #Pin(18, Pin.OUT)
 timer_led = Timer(-1)
+led_state = 0                   # Définit l'état de la LED
+led_duty = 0
+min_lum = 0.1                   #Luminosité minimale de la led (0-max)
+max_lum = 1.0                   #Luminosité maximale de la led (min-1)
+led.freq(1000)                  #Definit la fréquence du signal PWM de la led
 
 #Variables pour le Buzzer
 buzzer = PWM(Pin(27))
-buzzer.freq(440)                     # Fréquence du son de l'alarme (La = 440 Hz)
+buzzer.freq(440)                    # Fréquence du son de l'alarme (La = 440 Hz)
+buzzer_ON = 0                       # (0) buzzer désactivé (1) buzzer activé
+buzzer_vol = 100                    # volume du buzzer entre 0 et 65535
 
 #Variables pour le potentiomètre
 ROTARY_ANGLE_SENSOR = ADC(0)
@@ -59,24 +74,40 @@ def set_LCD(str1, str2):
     LCD.setCursor(0,1)
     LCD.print(str2)
 
-def scroll_alarm(timer):
+def update_alarm(timer):
     """Fait défiler le mot ALARM vers la droite et change de ligne après un passage complet."""
     global scroll_index, first_row, second_row, row, text_alarm
 
-    # Ajouter 16 espaces avant et après pour que le texte commence hors écran et disparaisse complètement
-    long_text = " " * 16 + text_alarm + " " * 16  
-    longueur = len(long_text)
-    # Fenêtre de 16 caractères pour l'affichage
-    fin = longueur - scroll_index
-    debut = fin - 16
-    display_text = long_text[debut:fin] #scroll_index:scroll_index + 16
+    display_text = ""
 
-    scroll_index += 1
+    if mode_alarm == MODE_DEFILEMENT:
+        # Ajouter 16 espaces avant et après pour que le texte commence hors écran et disparaisse complètement
+        long_text = " " * 16 + text_alarm + " " * 16  
+        longueur = len(long_text)
+        # Fenêtre de 16 caractères pour l'affichage
+        fin = ""
+        debut = ""
+        if direction_alarm == 0:
+            fin = longueur - scroll_index
+            debut = fin - 16
+        else:
+            fin = scroll_index
+            debut = scroll_index + 16
+        display_text = long_text[debut:fin] #scroll_index:scroll_index + 16
 
-    # Quand tout le texte est passé, on recommence et on change de ligne
-    if scroll_index > len(long_text) - 16:
-        scroll_index = 0
-        row = not row  # Change de ligne seulement après passage complet
+        scroll_index += 1
+
+        # Quand tout le texte est passé, on recommence et on change de ligne
+        if scroll_index > len(long_text) - 16:
+            scroll_index = 0
+            row = not row  # Change de ligne seulement après passage complet
+    else:
+        espace = 16 - len(text_alarm)
+        esp_gauche = espace//2
+        esp_droite = espace - esp_gauche
+        display_text = " "*esp_gauche + text_alarm + " "*esp_droite
+
+        row = not row
 
     # Affichage sur la ligne active
     if row == 0:
@@ -88,7 +119,6 @@ def scroll_alarm(timer):
 
     set_LCD(first_row, second_row)
 
-
 #Fonctions pour le DHT20
 def read_temp(timer):
     """Lit la température actuelle depuis le DHT20."""
@@ -97,8 +127,18 @@ def read_temp(timer):
 
 #Fonctions pour la LED
 def toggle_led(timer):
-    """Inverse l’état de la LED (clignotement)."""
-    led.toggle()
+    global led_state, led_duty
+    print(led_duty)
+    print(led_state)
+    """Inverse l’état de la LED."""
+    if led_state:
+        led.duty_u16(led_duty)
+    else:
+        led.duty_u16(0)
+    
+    led_state = not led_state
+    print(led_duty)
+    print(led_state)
 
 def set_led_timer_freq(frequence):
     """Configure la fréquence de clignotement de la LED."""
@@ -106,7 +146,14 @@ def set_led_timer_freq(frequence):
     if frequence > 0:
         timer_led.init(freq=frequence, mode=Timer.PERIODIC, callback=toggle_led)
     else:
-        led.off()
+        led.deinit()
+
+def update_led_duty():
+    global led_duty
+    proportion = (temp - SET_temp) / ECART_TEMP_ALARME
+    plage_lum = (max_lum-min_lum) * proportion
+    led_duty = int((plage_lum + min_lum) * 65535)
+    print(led_duty)
 
 #Fonctions pour le potentiomètre
 def normalize_rotation(rot):
@@ -149,13 +196,18 @@ def has_state_changed(new_state):
         return True
 
 def apply_state_actions(state):
-    global index_alarm
+    global index_alarm, led_duty
     """Applique les actions nécessaires lors d’un changement d’état."""
     if state == STATE_ALARME:
-        buzzer.duty_u16(0) #32767
+        if buzzer_ON:
+            buzzer.duty_u16(buzzer_vol) #32767
         set_led_timer_freq(5)
+        led_duty = 65535
         index_alarm = 0
-        timer_alarm.init(freq=frequence_alarme, mode=Timer.PERIODIC, callback=scroll_alarm)
+        if mode_alarm == MODE_DEFILEMENT:
+            timer_alarm.init(freq=frequence_defilement, mode=Timer.PERIODIC, callback=update_alarm)
+        else:
+            timer_alarm.init(freq=frequence_clignotement, mode=Timer.PERIODIC, callback=update_alarm)
         return
     
     buzzer.duty_u16(0)
@@ -165,6 +217,7 @@ def apply_state_actions(state):
         set_led_timer_freq(0.5)
     else: # state == STATE_NORMAL
         set_led_timer_freq(0)
+        led_duty = 0
 
 def update_display():
     """Met à jour le LCD pour les autres états que l'alarme."""
@@ -181,6 +234,7 @@ def update_display():
 
 
 def main():
+    # global led_duty
     last = time.ticks_ms()
 
     # Démarre la lecture de température périodique
@@ -192,6 +246,12 @@ def main():
 
         if time.ticks_ms() - last > 100:
             new_state = determine_state()
+
+            if new_state == STATE_HAUT:
+                update_led_duty()
+            # elif new_state == STATE_ALARME:
+            #     led_duty = 65535
+            
             if has_state_changed(new_state):
                 apply_state_actions(state)
             update_display()
