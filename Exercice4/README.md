@@ -57,21 +57,37 @@ Une moyenne glissante est utilisée pour lisser les mesures et éviter les déte
 
 ---
 
+## Limites du système
+
+Le capteur sonore utilisé n’est **pas assez précis** pour analyser les fréquences complexes d’une musique.  
+Le programme se base uniquement sur les **variations d’amplitude (volume)** pour détecter les battements.  
+Ainsi :
+- Avec une **musique réelle**, le rythme n’est pas détecté correctement car les variations de volume sont trop irrégulières.  
+- Le système fonctionne uniquement avec un **signal régulier et marqué**, comme un **métronome** ou des **claquements de mains**.  
+
+---
+
 ## Organigrammes
 
 ### 1. Organigramme de la boucle principale
 Cet organigramme illustre le fonctionnement général du programme, depuis la lecture du capteur jusqu’à la mise à jour du BPM et de la LED.  
-![Organigramme de la boucle principale](./boucle_principale.png)
+<p align="center">
+  <img src="./boucle_principale.png" alt="Organigramme de la boucle principale" height="1000">
+</p>
 
 ### 2. Organigramme de la détection de battement
 Cet organigramme détaille la logique utilisée pour identifier un battement en comparant le niveau sonore actuel au bruit moyen.  
-![Organigramme de la détection de battement](./detection_battement.png)
-
+<p align="center">
+  <img src="./detection_battement.png" alt="Organigramme de la détection de battement" height="1000">
+</p>
 ### 3. Organigramme de la prise de mesure
 Cet organigramme montre comment les échantillons du capteur sonore sont acquis, filtrés et moyennés pour fournir une mesure fiable.  
-![Organigramme de la prise de mesure](./prise_mesure.png)
+<p align="center">
+  <img src="./prise_mesure.png" alt="Organigramme de la prise de mesure" height="1000">
+</p>
 
+---
 
 ## Démonstration
 
-![Vidéo de démonstration](./Demonstration.mov)
+Une vidéo de démonstration est disponible dans les fichiers du repository.
