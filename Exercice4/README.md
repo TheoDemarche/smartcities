@@ -74,4 +74,4 @@ Cet organigramme montre comment les échantillons du capteur sonore sont acquis,
 
 ## Démonstration
 
-!(./Demonstration.mp4)
+![Vidéo de démonstration](./Demonstration.mp4)
