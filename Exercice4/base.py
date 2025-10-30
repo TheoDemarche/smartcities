@@ -8,6 +8,8 @@ rgb_led = WS2812(18, 1)           # Bande LED RGB connectée au pin 18, avec 1 L
 sound_sensor = ADC(1)             # Capteur de son analogique connecté au canal ADC 1
 
 # Paramètres de détection du son
+samples_quantity = 100           # Nombre d'échantillon valide à chaque prise de mesure
+sound_threshold = 5.0            # Volume minimum pour considéré l'échantillon valide
 sound_sliding_window_size = 10   # Taille de la fenêtre pour la moyenne glissante du bruit ambiant
 sound_history = []               # Historique des niveaux sonores récents
 average_noise_level = 15         # Niveau de bruit moyen initial
@@ -69,7 +71,7 @@ def main():
     global last_detection_time, average_noise_level
 
     while True:
-        current_noise = read_filtered_noise(samples=100, min_threshold=5.0)
+        current_noise = read_filtered_noise(samples_quantity, sound_threshold)
 
         beat_detected, interval = detect_beat(
             current_noise, average_noise_level, last_detection_time,
