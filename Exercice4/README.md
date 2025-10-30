@@ -80,6 +80,7 @@ Cet organigramme détaille la logique utilisée pour identifier un battement en 
 <p align="center">
   <img src="./detection_battement.png" alt="Organigramme de la détection de battement" height="1000">
 </p>
+
 ### 3. Organigramme de la prise de mesure
 Cet organigramme montre comment les échantillons du capteur sonore sont acquis, filtrés et moyennés pour fournir une mesure fiable.  
 <p align="center">
