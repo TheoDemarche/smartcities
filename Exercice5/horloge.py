@@ -31,25 +31,34 @@ def GET_request(url):
     try:
         response = urequests.get(url, timeout=10)   #Requète HTTP GET à l'API avec un timeout
         if response.status_code == 200:             #Si le code de status de la requète est de 200 alors c'est un succès
-            data = json.loads(response.text)        #Convertit la réponse (JSON) en dictionnaire python
+            text = response.text                    # Extraction du texte de la réponse
             response.close()                        #Fermeture de la connexion
             gc.collect()                            # Nettoie la mémoire RAM
-            return data
+
+            start = text.find('"datetime":"')         # Recherche de datetime
+            if start != -1:                         # Si trouve une valeur
+                start += len('"datetime":"')          # Incremente l'index de la taille de la clé
+                end = text.find('"', start)         # Cherche la fin de la valeur à partir du début
+                datetime_str = text[start:end]      # Extrait la valeur à l'aide des 2 index
+                if DEBUG:
+                    print("Datetime obtenu : ", datetime_str)
+                return datetime_str
         else:                                       #La requète à échouée
+            print("Erreur : status code : ", response.status_code)
             response.close()                        #Fermeture de la connexion
             gc.collect()                            # Nettoie la mémoire RAM
             return None
             
     except Exception as e:
         if DEBUG:
-            print(f"Erreur: {e}")
+            print("Exception :", type(e).__name__, e)
+        gc.collect()
         return None
 
-def convert_data_to_time(data):
-    datetime_str = data['datetime']                         # Extrait le datetime du dictionnaire
-    if DEBUG:
-        print("Datetime obtenu : ", datetime_str)                                     # Format : 2025-11-05T14:37:18.063121+01:00
-
+def convert_data_to_time(datetime_str):
+    '''
+    Traitement du datetime string de Format : 2025-11-05T14:37:18.063121+01:00
+    '''
     date_part, time_part = datetime_str.split('T')          # Sépare en 2025-11-05 et en 14:37:18.063121+01:00
     year, month, day = map(int, date_part.split('-'))       # Sépare l'année, le mois et le jour
     time_part = time_part.split('.')[0]                     # Enlève la partie après les secondes et le fuseau => 14:37:18 
@@ -120,7 +129,7 @@ def change_fuseau():
     button_timer = 0
     print("Le fuseau horaire à changé : UTC ", utc_offset)
 
-DEBUG = False
+DEBUG = True
 
 servo_pin = Pin(20)
 servo_pwm = PWM(servo_pin)
@@ -141,6 +150,7 @@ while True:
     if time.ticks_diff(time.ticks_ms(), last) > 5000:
         temps = get_time(utc_offset)
         if temps:
+            print(f"Heure : {temps[3]:02d}:{temps[4]:02d}:{temps[5]:02d}")
             minutes = 60 * temps[3] + temps[4]
             deg = hour_to_deg(minutes, format)
             if DEBUG:
