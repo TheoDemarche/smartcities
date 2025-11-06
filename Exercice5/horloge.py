@@ -10,19 +10,29 @@ import io
 SSID = "SSID"
 PASSWORD = "mdp"
 
-def connect_wifi(SSID, PASSWORD):
+def connect_wifi(SSID, PASSWORD, timeout=10):
+    '''
+    Boucle while jusqu'à connection au wifi avec un timeout en secondes
+    '''
     wlan = network.WLAN(network.STA_IF)     #Object : interface wifi (Wlan) en tant que client
     wlan.active(True)                       # Activation de l'interface
     try:
         if not wlan.isconnected():              # Si pas connecté à un réseau
             print("Connexion au Wi-Fi...")
             wlan.connect(SSID, PASSWORD)        # Etablissement de la connexion
+
+            start_time = time.ticks_ms()
             while not wlan.isconnected():       # Delai entre les tests
+                if time.ticks_diff(time.ticks_ms(), start_time) > timeout * 1000:
+                    print("Erreur : impossible de se connecter au wifi après ", timeout, " secondes")
+                    return None
                 time.sleep(0.5)
+
         print("Connecté au Wi-Fi, adresse IP:", wlan.ifconfig()[0])
         return wlan
     except Exception as e:
         log_error(e, context="Fonction connect_wifi")
+        return None
 
 """
 Format de la réponse
@@ -83,10 +93,10 @@ def convert_datatime_to_tuple(datetime_str):
         time_part = time_part.split('.')[0]                     # Enlève la partie après les secondes et le fuseau => 14:37:18 
         hour, minute, second = map(int, time_part.split(':'))   #Sépare les heures, les minutes et les secondes
         
-        return (year, month, day, hour, minute, second)
+        return [year, month, day, hour, minute, second]
     except Exception as e:
         log_error(e, context="Fonction convert datetime to tuple")
-        return (0, 0, 0, 0, 0, 0)
+        return [0, 0, 0, 0, 0, 0]
 
 def UTC_to_GMT(utc_offset=1):
     # inversion du signe pour passer du format utc au format GMT demandé par l'API
@@ -111,7 +121,7 @@ def get_time(utc_offset):
         return None
     except Exception as e:
         log_error(e, context="Fonction get time")
-        return (0, 0, 0, 0, 0, 0)
+        return [0, 0, 0, 0, 0, 0]
 
 def update_time(format, servo_pwm):
     global current_time
@@ -150,26 +160,35 @@ def hour_to_deg(minutes, format):
 
 def button_pressed(PIN):
     global format, last_button, button_timer, servo_pwm, current_time
-    if DEBUG:
-        print("Button pressed")
-        print("Delay depuis le dernier : ", time.ticks_diff(time.ticks_ms(), last_button))
-    if time.ticks_diff(time.ticks_ms(), last_button) < 500:
-        format = 12 if format == 24 else 24
-        print("format mit à jour : ", format)
-        button_timer = 0
-        minutes = 60* current_time[3] + current_time[4]
-        update_angle(minutes, format, servo_pwm)
-    else:
-        button_timer = 1
-    last_button = time.ticks_ms()
+    try:
+        if DEBUG:
+            print("Button pressed")
+            print("Delay depuis le dernier : ", time.ticks_diff(time.ticks_ms(), last_button))
+        if time.ticks_diff(time.ticks_ms(), last_button) < 500:
+            format = 12 if format == 24 else 24
+            print("format mit à jour : ", format)
+            button_timer = 0
+            minutes = 60* current_time[3] + current_time[4]
+            update_angle(minutes, format, servo_pwm)
+        else:
+            button_timer = 1
+        last_button = time.ticks_ms()
+    except Exception as e:
+        log_error(e, context="Fonction irq button pressed")
 
 def change_fuseau():
-    global utc_offset, button_timer
+    global utc_offset, button_timer, current_time, format, servo_pwm
     if utc_offset < 12:
         utc_offset += 1
     else:
         utc_offset = -12
+
+    offset_hour = (current_time[3] + 1) % 24
+    minutes = 60* offset_hour + current_time[4]
+
+    update_angle(minutes, format, servo_pwm)
     button_timer = 0
+
     print("Le fuseau horaire à changé : UTC ", utc_offset)
 
 def get_local_time_str():
@@ -208,7 +227,7 @@ last_button = time.ticks_ms()
 utc_offset = 1
 format = 3
 button_timer = 0
-current_time: tuple[int, int, int, int, int, int] = (0, 0, 0, 0, 0, 0)
+current_time = [0, 0, 0, 0, 0, 0]
 
 
 connect_wifi(SSID, PASSWORD)
