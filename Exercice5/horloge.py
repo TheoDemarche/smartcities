@@ -3,6 +3,7 @@ import network
 import urequests
 import json
 from machine import Pin, PWM
+import gc
 
 SSID = "SSID"
 PASSWORD = "mdp"
@@ -18,9 +19,12 @@ def connect_wifi(SSID, PASSWORD):
     print("Connecté au Wi-Fi, adresse IP:", wlan.ifconfig()[0])
     return wlan
 
-"""{"utc_offset":"-01:00","timezone":"Etc/GMT+1","day_of_week":3,"day_of_year":309,"datetime":"2025-11-05T12:05:50.084920-01:00",
+"""
+Format de la réponse
+{"utc_offset":"-01:00","timezone":"Etc/GMT+1","day_of_week":3,"day_of_year":309,"datetime":"2025-11-05T12:05:50.084920-01:00",
 "utc_datetime":"2025-11-05T13:05:50.084920+00:00","unixtime":1762347950,"raw_offset":-3600,"week_number":45,"dst":false,
-"abbreviation":"-01","dst_offset":0,"dst_from":null,"dst_until":null,"client_ip":"2a01:cc00:d160:1000:d96b:a0a5:fdef:7047"}"""
+"abbreviation":"-01","dst_offset":0,"dst_from":null,"dst_until":null,"client_ip":"2a01:cc00:d160:1000:d96b:a0a5:fdef:7047"}
+"""
 
 def GET_request(url):
     '''Envoie une requète GET à l'URL spécifié'''
@@ -29,18 +33,22 @@ def GET_request(url):
         if response.status_code == 200:             #Si le code de status de la requète est de 200 alors c'est un succès
             data = json.loads(response.text)        #Convertit la réponse (JSON) en dictionnaire python
             response.close()                        #Fermeture de la connexion
+            gc.collect()                            # Nettoie la mémoire RAM
             return data
         else:                                       #La requète à échouée
             response.close()                        #Fermeture de la connexion
+            gc.collect()                            # Nettoie la mémoire RAM
             return None
             
     except Exception as e:
-        print(f"Erreur: {e}")
+        if DEBUG:
+            print(f"Erreur: {e}")
         return None
 
 def convert_data_to_time(data):
     datetime_str = data['datetime']                         # Extrait le datetime du dictionnaire
-    print(datetime_str)                                     # Format : 2025-11-05T14:37:18.063121+01:00
+    if DEBUG:
+        print("Datetime obtenu : ", datetime_str)                                     # Format : 2025-11-05T14:37:18.063121+01:00
 
     date_part, time_part = datetime_str.split('T')          # Sépare en 2025-11-05 et en 14:37:18.063121+01:00
     year, month, day = map(int, date_part.split('-'))       # Sépare l'année, le mois et le jour
@@ -60,15 +68,15 @@ def UTC_to_GMT(utc_offset=1):
 def get_time(utc_offset):
     gmt_offset = UTC_to_GMT(utc_offset)
     url = f"http://worldtimeapi.org/api/timezone/Etc/GMT{gmt_offset}" #lien de requête
-    print(f"Requête: {url}")
+    if DEBUG:
+        print(f"Requête: {url}")
 
     data = GET_request(url)
-    while not data:
-        time.sleep(1)
-        data = GET_request(url)
 
-    temps = convert_data_to_time(data)
-    return temps
+    if data:
+        temps = convert_data_to_time(data)
+        return temps
+    return None
 
 def inter_lin(x, xmin, xmax, ymin, ymax):
     if x < xmin or x > xmax:
@@ -92,8 +100,9 @@ def hour_to_deg(minutes, format):
 
 def button_pressed(PIN):
     global format, last_button, button_timer
-    print("Button pressed")
-    print(time.ticks_diff(time.ticks_ms(), last_button))
+    if DEBUG:
+        print("Button pressed")
+        print("Delay depuis le dernier : ", time.ticks_diff(time.ticks_ms(), last_button))
     if time.ticks_diff(time.ticks_ms(), last_button) < 500:
         format = 12 if format == 24 else 24
         print("format mit à jour : ", format)
@@ -109,7 +118,9 @@ def change_fuseau():
     else:
         utc_offset = -12
     button_timer = 0
-    print("Le fuseau horaire à changé : ", utc_offset)
+    print("Le fuseau horaire à changé : UTC ", utc_offset)
+
+DEBUG = False
 
 servo_pin = Pin(20)
 servo_pwm = PWM(servo_pin)
@@ -132,10 +143,11 @@ while True:
         if temps:
             minutes = 60 * temps[3] + temps[4]
             deg = hour_to_deg(minutes, format)
-            print(deg)
+            if DEBUG:
+                print("Angle : ", deg)
             turn_to_deg(deg, servo_pwm)
             last = time.ticks_ms()
     
     if button_timer:
-        if time.ticks_diff(time.ticks_ms(), last_button) > 1000:
+        if time.ticks_diff(time.ticks_ms(), last_button) > 500:
             change_fuseau()
