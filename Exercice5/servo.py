@@ -19,7 +19,7 @@ def main():
     servo_pwm = PWM(servo_pin)
     servo_pwm.freq(100)
 
-    deg = 50
+    deg = 0
     duty = inter_lin(deg, 0, 180, 3277, 15400)
     print(duty)
     servo_pwm.duty_u16(duty)
