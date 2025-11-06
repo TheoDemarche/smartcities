@@ -2,6 +2,7 @@ import time
 import network
 import urequests
 import json
+from machine import Pin, PWM
 
 SSID = "SSID"
 PASSWORD = "mdp"
@@ -69,18 +70,72 @@ def get_time(utc_offset):
     temps = convert_data_to_time(data)
     return temps
 
-def main():
-    # Connexion Wi-Fi
-    connect_wifi(SSID, PASSWORD)
+def inter_lin(x, xmin, xmax, ymin, ymax):
+    if x < xmin or x > xmax:
+        print("Erreur, la valeur n'est pas comprise dans la plage : %s pas dans %s-%s" % [x, xmin, xmax])
+        x = max(xmin, min(x, xmax))
 
-    # Utilisation simple
-    print("Récupération de l'heure UTC+1...")
-    utc_offset = 1
+    pente = (ymax-ymin) / (xmax-xmin)
+    y = x * pente + ymin
+    return int(y)
 
-    temps = get_time(utc_offset)
+def turn_to_deg(deg, pwm : PWM):
+    duty = inter_lin(deg, 0, 180, 3277, 15400)
+    pwm.duty_u16(duty)
+
+def hour_to_deg(minutes, format):
+    minutes = minutes % (format*60)
+    deg = minutes/(format * 60) * 180            #format 24h : 0 -> 180
+    if format == 12:
+        deg = 180 - deg                 #format 12h : 180 -> 0
+    return deg
+
+def button_pressed(PIN):
+    global format, last_button, button_timer
+    print("Button pressed")
+    print(time.ticks_diff(time.ticks_ms(), last_button))
+    if time.ticks_diff(time.ticks_ms(), last_button) < 500:
+        format = 12 if format == 24 else 24
+        print("format mit à jour : ", format)
+        button_timer = 0
+    else:
+        button_timer = 1
+    last_button = time.ticks_ms()
+
+def change_fuseau():
+    global utc_offset, button_timer
+    if utc_offset < 12:
+        utc_offset += 1
+    else:
+        utc_offset = -12
+    button_timer = 0
+    print("Le fuseau horaire à changé : ", utc_offset)
+
+servo_pin = Pin(20)
+servo_pwm = PWM(servo_pin)
+servo_pwm.freq(100)
+
+BUTTON = Pin(16, Pin.IN)
+BUTTON.irq(trigger=Pin.IRQ_RISING, handler=button_pressed)
+
+last_button = time.ticks_ms()
+utc_offset = 1
+format = 3
+button_timer = 0
+
+connect_wifi(SSID, PASSWORD)
+
+last = time.ticks_ms()
+while True:
+    if time.ticks_diff(time.ticks_ms(), last) > 5000:
+        temps = get_time(utc_offset)
+        if temps:
+            minutes = 60 * temps[3] + temps[4]
+            deg = hour_to_deg(minutes, format)
+            print(deg)
+            turn_to_deg(deg, servo_pwm)
+            last = time.ticks_ms()
     
-    print(f"Heure : {temps[3]:02d}:{temps[4]:02d}:{temps[5]:02d}")
-
-
-if __name__ == "__main__":
-    main()
+    if button_timer:
+        if time.ticks_diff(time.ticks_ms(), last_button) > 1000:
+            change_fuseau()
