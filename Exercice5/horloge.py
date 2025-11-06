@@ -13,13 +13,16 @@ PASSWORD = "mdp"
 def connect_wifi(SSID, PASSWORD):
     wlan = network.WLAN(network.STA_IF)     #Object : interface wifi (Wlan) en tant que client
     wlan.active(True)                       # Activation de l'interface
-    if not wlan.isconnected():              # Si pas connecté à un réseau
-        print("Connexion au Wi-Fi...")
-        wlan.connect(SSID, PASSWORD)        # Etablissement de la connexion
-        while not wlan.isconnected():       # Delai entre les tests
-            time.sleep(0.5)
-    print("Connecté au Wi-Fi, adresse IP:", wlan.ifconfig()[0])
-    return wlan
+    try:
+        if not wlan.isconnected():              # Si pas connecté à un réseau
+            print("Connexion au Wi-Fi...")
+            wlan.connect(SSID, PASSWORD)        # Etablissement de la connexion
+            while not wlan.isconnected():       # Delai entre les tests
+                time.sleep(0.5)
+        print("Connecté au Wi-Fi, adresse IP:", wlan.ifconfig()[0])
+        return wlan
+    except Exception as e:
+        log_error(e, context="Fonction connect_wifi")
 
 """
 Format de la réponse
@@ -58,25 +61,32 @@ def GET_request(url):
         return None
 
 def extract_response(text, cle_str):
-    start = text.find(cle_str)         # Recherche de datetime
-    if start != -1:                         # Si trouve une valeur
-        start += len(cle_str)          # Incremente l'index de la taille de la clé
-        end = text.find('"', start)         # Cherche la fin de la valeur à partir du début
-        sortie = text[start:end]      # Extrait la valeur à l'aide des 2 index
-        if DEBUG:
-            print("sortie obtenu : ", sortie)
-        return sortie
+    try:
+        start = text.find(cle_str)         # Recherche de datetime
+        if start != -1:                         # Si trouve une valeur
+            start += len(cle_str)          # Incremente l'index de la taille de la clé
+            end = text.find('"', start)         # Cherche la fin de la valeur à partir du début
+            sortie = text[start:end]      # Extrait la valeur à l'aide des 2 index
+            if DEBUG:
+                print("sortie obtenu : ", sortie)
+            return sortie
+    except Exception as e:
+        log_error(e, context="Fonction extract response")
 
 def convert_datatime_to_tuple(datetime_str):
     '''
     Traitement du datetime string de Format : 2025-11-05T14:37:18.063121+01:00
     '''
-    date_part, time_part = datetime_str.split('T')          # Sépare en 2025-11-05 et en 14:37:18.063121+01:00
-    year, month, day = map(int, date_part.split('-'))       # Sépare l'année, le mois et le jour
-    time_part = time_part.split('.')[0]                     # Enlève la partie après les secondes et le fuseau => 14:37:18 
-    hour, minute, second = map(int, time_part.split(':'))   #Sépare les heures, les minutes et les secondes
-    
-    return (year, month, day, hour, minute, second)
+    try:
+        date_part, time_part = datetime_str.split('T')          # Sépare en 2025-11-05 et en 14:37:18.063121+01:00
+        year, month, day = map(int, date_part.split('-'))       # Sépare l'année, le mois et le jour
+        time_part = time_part.split('.')[0]                     # Enlève la partie après les secondes et le fuseau => 14:37:18 
+        hour, minute, second = map(int, time_part.split(':'))   #Sépare les heures, les minutes et les secondes
+        
+        return (year, month, day, hour, minute, second)
+    except Exception as e:
+        log_error(e, context="Fonction convert datetime to tuple")
+        return (0, 0, 0, 0, 0, 0)
 
 def UTC_to_GMT(utc_offset=1):
     # inversion du signe pour passer du format utc au format GMT demandé par l'API
@@ -87,17 +97,21 @@ def UTC_to_GMT(utc_offset=1):
     return gmt_offset
 
 def get_time(utc_offset):
-    gmt_offset = UTC_to_GMT(utc_offset)
-    url = f"http://worldtimeapi.org/api/timezone/Etc/GMT{gmt_offset}" #lien de requête
-    if DEBUG:
-        print(f"Requête: {url}")
+    try:
+        gmt_offset = UTC_to_GMT(utc_offset)
+        url = f"http://worldtimeapi.org/api/timezone/Etc/GMT{gmt_offset}" #lien de requête
+        if DEBUG:
+            print(f"Requête: {url}")
 
-    data = GET_request(url)
+        data = GET_request(url)
 
-    if data:
-        temps = convert_datatime_to_tuple(data)
-        return temps
-    return None
+        if data:
+            temps = convert_datatime_to_tuple(data)
+            return temps
+        return None
+    except Exception as e:
+        log_error(e, context="Fonction get time")
+        return (0, 0, 0, 0, 0, 0)
 
 def inter_lin(x, xmin, xmax, ymin, ymax):
     if x < xmin or x > xmax:
@@ -183,17 +197,20 @@ connect_wifi(SSID, PASSWORD)
 
 last = time.ticks_ms()
 while True:
-    if time.ticks_diff(time.ticks_ms(), last) > 5000:
-        temps = get_time(utc_offset)
-        if temps:
-            print(f"Heure : {temps[3]:02d}:{temps[4]:02d}:{temps[5]:02d}")
-            minutes = 60 * temps[3] + temps[4]
-            deg = hour_to_deg(minutes, format)
-            if DEBUG:
-                print("Angle : ", deg)
-            turn_to_deg(deg, servo_pwm)
-            last = time.ticks_ms()
-    
-    if button_timer:
-        if time.ticks_diff(time.ticks_ms(), last_button) > 500:
-            change_fuseau()
+    try:
+        if time.ticks_diff(time.ticks_ms(), last) > 5000:
+            temps = get_time(utc_offset)
+            if temps:
+                print(f"Heure : {temps[3]:02d}:{temps[4]:02d}:{temps[5]:02d}")
+                minutes = 60 * temps[3] + temps[4]
+                deg = hour_to_deg(minutes, format)
+                if DEBUG:
+                    print("Angle : ", deg)
+                turn_to_deg(deg, servo_pwm)
+                last = time.ticks_ms()
+        
+        if button_timer:
+            if time.ticks_diff(time.ticks_ms(), last_button) > 500:
+                change_fuseau()
+    except Exception as e:
+        log_error(e, context="Boucle principale")
