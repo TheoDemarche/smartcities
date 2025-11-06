@@ -68,7 +68,7 @@ def extract_response(text, cle_str):
             end = text.find('"', start)         # Cherche la fin de la valeur à partir du début
             sortie = text[start:end]      # Extrait la valeur à l'aide des 2 index
             if DEBUG:
-                print("sortie obtenu : ", sortie)
+                print("extraction obtenu : ", sortie)
             return sortie
     except Exception as e:
         log_error(e, context="Fonction extract response")
@@ -113,6 +113,21 @@ def get_time(utc_offset):
         log_error(e, context="Fonction get time")
         return (0, 0, 0, 0, 0, 0)
 
+def update_time(format, servo_pwm):
+    global current_time
+    temps = get_time(utc_offset)
+    if temps:
+        current_time = temps
+        print(f"Heure : {temps[3]:02d}:{temps[4]:02d}:{temps[5]:02d}")
+        minutes = 60 * temps[3] + temps[4]
+        update_angle(minutes, format, servo_pwm)
+
+def update_angle(minutes, format, servo_pwm):
+    deg = hour_to_deg(minutes, format)
+    if DEBUG:
+        print("Angle : ", deg)
+    turn_to_deg(deg, servo_pwm)
+
 def inter_lin(x, xmin, xmax, ymin, ymax):
     if x < xmin or x > xmax:
         print("Erreur, la valeur n'est pas comprise dans la plage : %s pas dans %s-%s" % [x, xmin, xmax])
@@ -134,7 +149,7 @@ def hour_to_deg(minutes, format):
     return deg
 
 def button_pressed(PIN):
-    global format, last_button, button_timer
+    global format, last_button, button_timer, servo_pwm, current_time
     if DEBUG:
         print("Button pressed")
         print("Delay depuis le dernier : ", time.ticks_diff(time.ticks_ms(), last_button))
@@ -142,6 +157,8 @@ def button_pressed(PIN):
         format = 12 if format == 24 else 24
         print("format mit à jour : ", format)
         button_timer = 0
+        minutes = 60* current_time[3] + current_time[4]
+        update_angle(minutes, format, servo_pwm)
     else:
         button_timer = 1
     last_button = time.ticks_ms()
@@ -191,6 +208,7 @@ last_button = time.ticks_ms()
 utc_offset = 1
 format = 3
 button_timer = 0
+current_time: tuple[int, int, int, int, int, int] = (0, 0, 0, 0, 0, 0)
 
 
 connect_wifi(SSID, PASSWORD)
@@ -198,19 +216,15 @@ connect_wifi(SSID, PASSWORD)
 last = time.ticks_ms()
 while True:
     try:
-        if time.ticks_diff(time.ticks_ms(), last) > 5000:
-            temps = get_time(utc_offset)
-            if temps:
-                print(f"Heure : {temps[3]:02d}:{temps[4]:02d}:{temps[5]:02d}")
-                minutes = 60 * temps[3] + temps[4]
-                deg = hour_to_deg(minutes, format)
-                if DEBUG:
-                    print("Angle : ", deg)
-                turn_to_deg(deg, servo_pwm)
-                last = time.ticks_ms()
-        
         if button_timer:
             if time.ticks_diff(time.ticks_ms(), last_button) > 500:
                 change_fuseau()
+                update_time(format, servo_pwm)
+                last = time.ticks_ms()
+        
+        if time.ticks_diff(time.ticks_ms(), last) > 5000:
+            update_time(format, servo_pwm)
+            last = time.ticks_ms()
+        
     except Exception as e:
         log_error(e, context="Boucle principale")
