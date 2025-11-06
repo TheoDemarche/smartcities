@@ -2,8 +2,10 @@ import time
 import network
 import urequests
 import json
-from machine import Pin, PWM
+from machine import Pin, PWM, RTC
 import gc
+import sys
+import io
 
 SSID = "SSID"
 PASSWORD = "mdp"
@@ -27,6 +29,7 @@ Format de la réponse
 """
 
 def GET_request(url):
+    global console_log
     '''Envoie une requète GET à l'URL spécifié'''
     try:
         response = urequests.get(url, timeout=10)   #Requète HTTP GET à l'API avec un timeout
@@ -35,14 +38,13 @@ def GET_request(url):
             response.close()                        #Fermeture de la connexion
             gc.collect()                            # Nettoie la mémoire RAM
 
-            start = text.find('"datetime":"')         # Recherche de datetime
-            if start != -1:                         # Si trouve une valeur
-                start += len('"datetime":"')          # Incremente l'index de la taille de la clé
-                end = text.find('"', start)         # Cherche la fin de la valeur à partir du début
-                datetime_str = text[start:end]      # Extrait la valeur à l'aide des 2 index
-                if DEBUG:
-                    print("Datetime obtenu : ", datetime_str)
-                return datetime_str
+            datetime_str = extract_response(text, '"datetime":"')
+            if console_log:
+                datetime_utc_str = extract_response(text, '"utc_datetime":"')
+                datetime_utc_tuple = convert_datatime_to_tuple(datetime_utc_str)
+                rtc.datetime((datetime_utc_tuple[0], datetime_utc_tuple[1], datetime_utc_tuple[2], 0, datetime_utc_tuple[3], datetime_utc_tuple[4], datetime_utc_tuple[5], 0))
+
+            return datetime_str
         else:                                       #La requète à échouée
             print("Erreur : status code : ", response.status_code)
             response.close()                        #Fermeture de la connexion
@@ -51,11 +53,21 @@ def GET_request(url):
             
     except Exception as e:
         if DEBUG:
-            print("Exception :", type(e).__name__, e)
+            log_error(e, context="GET request")
         gc.collect()
         return None
 
-def convert_data_to_time(datetime_str):
+def extract_response(text, cle_str):
+    start = text.find(cle_str)         # Recherche de datetime
+    if start != -1:                         # Si trouve une valeur
+        start += len(cle_str)          # Incremente l'index de la taille de la clé
+        end = text.find('"', start)         # Cherche la fin de la valeur à partir du début
+        sortie = text[start:end]      # Extrait la valeur à l'aide des 2 index
+        if DEBUG:
+            print("sortie obtenu : ", sortie)
+        return sortie
+
+def convert_datatime_to_tuple(datetime_str):
     '''
     Traitement du datetime string de Format : 2025-11-05T14:37:18.063121+01:00
     '''
@@ -83,7 +95,7 @@ def get_time(utc_offset):
     data = GET_request(url)
 
     if data:
-        temps = convert_data_to_time(data)
+        temps = convert_datatime_to_tuple(data)
         return temps
     return None
 
@@ -129,7 +141,30 @@ def change_fuseau():
     button_timer = 0
     print("Le fuseau horaire à changé : UTC ", utc_offset)
 
+def get_local_time_str():
+    """Retourne l'heure actuelle du système formatée."""
+    try:
+        t = time.localtime()
+        return "%04d-%02d-%02d %02d:%02d:%02d" % (t[0], t[1], t[2], t[3], t[4], t[5])
+    except:
+        return "0000-00-00 00:00:00"
+
+def log_error(e, context=""):
+    """Affiche une erreur détaillée avec horodatage UTC"""
+    ts = get_local_time_str()
+    print("\n--- ERREUR ---")
+    print("Heure UTC :", ts)
+    if context:
+        print("Contexte :", context)
+    print("Type :", type(e).__name__)
+    print("Message :", e)
+    sys.print_exception(e)
+    print("--------------\n")
+
 DEBUG = True
+
+rtc = RTC()
+console_log = True
 
 servo_pin = Pin(20)
 servo_pwm = PWM(servo_pin)
@@ -142,6 +177,7 @@ last_button = time.ticks_ms()
 utc_offset = 1
 format = 3
 button_timer = 0
+
 
 connect_wifi(SSID, PASSWORD)
 
