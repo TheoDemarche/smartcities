@@ -180,7 +180,7 @@ Format de la réponse
 
 # Fonctions gestion de l'heure
 
-def convert_datetime_to_tuple(datetime_str, log=False, debug=False):
+def convert_datetime_to_list(datetime_str, log=False, debug=False):
     """
     Convertit une chaîne datetime API : 2025-11-05T14:37:18.063121+01:00 en liste [année, mois, jour, heure, minute, seconde].
     """
@@ -226,11 +226,11 @@ def get_time(utc_offset, log=False, debug=False):
         datetime_str, datetime_utc_str = extract_datetimes(data, debug)         # Extraction des datetimes depuis la réponse de l'API
 
         if datetime_utc_str:
-            datetime_utc_tuple = convert_datetime_to_tuple(datetime_utc_str, log, debug)                        # Conversion en tuple
+            datetime_utc_tuple = convert_datetime_to_list(datetime_utc_str, log, debug)                        # Conversion en tuple
             rtc.datetime((datetime_utc_tuple[0], datetime_utc_tuple[1], datetime_utc_tuple[2]                   # Mise à joure de l'heure interne du microcontroller
                           , 0, datetime_utc_tuple[3], datetime_utc_tuple[4], datetime_utc_tuple[5], 0))
         if datetime_str:
-            temps = convert_datetime_to_tuple(datetime_str, log, debug)                 # Conversion en tuple
+            temps = convert_datetime_to_list(datetime_str, log, debug)                 # Conversion en tuple
             return temps                                                                # Renvoie l'heure demandé (avec offset)
         return None
     except Exception as e:
