@@ -114,6 +114,94 @@ Chaque action déclenche une **mise à jour immédiate** de l’angle du servo e
 
 ---
 
+## Paramètres configurables
+
+Cette section présente les **paramètres principaux** modifiables dans le code.  
+Ils permettent d’ajuster le comportement du programme selon vos besoins (connexion, affichage, temporisation ou journalisation).
+
+---
+
+### 🔌 Connexion Wi-Fi
+
+Deux paramètres contrôlent la gestion des tentatives de connexion au réseau :
+
+- **`CONNECTION_MODE`** :  
+  Définit le comportement du programme lorsqu’il ne parvient pas à se connecter au Wi-Fi.  
+  - `0` → le programme **s’arrête** en cas d’échec.  
+  - `1` → le programme **tente une reconnexion automatique** après un délai.
+
+- **`CONNECTION_DELAI`** :  
+  Temps d’attente (en secondes) entre deux tentatives de reconnexion si le mode 1 est activé.  
+  Par défaut : `10` secondes.
+
+---
+
+### 🧭 Fuseau horaire et format horaire
+
+Ces deux paramètres définissent les valeurs utilisées **au démarrage du programme** :
+
+- **`utc_offset`** :  
+  Indique le **décalage horaire** par rapport à l’UTC (de `-12` à `+12`).  
+  Exemple : `1` correspond à **UTC+1** (heure d'hiver en Belgique).
+
+- **`format`** :  
+  Définit le **format d’affichage de l’heure**.  
+  - `12` → mode **12 heures** (l’angle est inversé : 180° → 0°).  
+  - `24` → mode **24 heures** (progression linéaire sur 180°).
+
+> Ces deux paramètres peuvent être modifiés dynamiquement grâce au **bouton poussoir** :
+> - **Clic simple** → incremente le `utc_offset` (fuseau horaire).  
+> - **Double clic rapide** → change le `format` (12h ↔ 24h).
+
+---
+
+### ⏱️ Temporisations principales
+
+Le programme repose sur plusieurs temporisations pour la mise à jour de l’heure et la gestion des appuis sur le bouton :
+
+- **`DELAI_REQUETE`** :  
+  Intervalle entre deux requêtes à l’API *worldtimeapi.org* (en millisecondes).  
+  Valeur par défaut : `5000 ms` (soit 5 secondes).
+
+- **`TIMEOUT_REQUETE`** :  
+  Durée maximale autorisée pour qu’une requête aboutisse avant abandon (en millisecondes).  
+  Valeur par défaut : `10000 ms`.
+
+- **`DELAI_DOUBLE_CLICK`** :  
+  Délai maximal entre deux appuis sur le bouton pour être reconnu comme un **double clic**.  
+  Valeur par défaut : `1000 ms`.
+
+- **`DELAI_REBOND`** :  
+  Délai anti-rebond empêchant plusieurs détections successives d’un même appui.  
+  Valeur par défaut : `100 ms`.
+
+---
+
+### 🧰 Options de débogage et journalisation
+
+Plusieurs options permettent d’afficher ou d’enregistrer les erreurs détectées par le programme :
+
+- **`DEBUG`** :  
+  Active l’affichage de messages supplémentaires dans la console (utile pour suivre le déroulement du programme).
+
+- **`CONSOLE_LOG`** :  
+  Si activé, affiche les **erreurs détaillées** dans la console (trace complète de l’exception).
+
+- **`FILE_LOG`** :  
+  Si activé, enregistre les erreurs dans un **fichier texte local**.
+
+- **`LOG_FILE_NAME`** :  
+  Nom du fichier utilisé pour la sauvegarde des erreurs.  
+  Par défaut : `"error_log.txt"`.
+
+- **`MAX_LOG_SIZE`** :  
+  Taille maximale du fichier de log avant arrêt de l’écriture.  
+  Par défaut : `10 * 1024` octets, soit **10 Ko**.
+
+> Ces paramètres sont utiles pour le diagnostic lors des tests ou en cas de problème de connexion, de requête API ou de fonctionnement du servo.
+
+---
+
 ## Améliorations possibles
 
 - Prise en compte de l'heure d'été/hiver
